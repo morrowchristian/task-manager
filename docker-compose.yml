@@ -1,0 +1,71 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    command: ["sh", "-c", "cd /workspace/backend && npm install && npm run dev"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/workspace
+    environment:
+      - NODE_ENV=development
+      - DEBUG=express:*
+      - MONGODB_URI=mongodb://mongodb:27017/myapp
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/hello"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+  frontend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    command: ["sh", "-c", "cd /workspace/frontend && npm install && npm start"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/workspace
+    environment:
+      - NODE_ENV=development
+      - WDS_SOCKET_PORT=0
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+networks:
+  app-network:
+    driver: bridge
+volumes:
+  mongo-data:
